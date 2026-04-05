@@ -57,10 +57,33 @@ def from_pretrained(path: str, **kwargs):
     else:
         from huggingface_hub import hf_hub_download
         path_parts = path.split('/')
-        repo_id = f'{path_parts[0]}/{path_parts[1]}'
-        model_name = '/'.join(path_parts[2:])
-        config_file = hf_hub_download(repo_id, f"{model_name}.json")
-        model_file = hf_hub_download(repo_id, f"{model_name}.safetensors")
+        
+        # Validate path format
+        if len(path_parts) < 2:
+            raise ValueError(
+                f"Invalid model path: '{path}'\n"
+                f"Expected format: 'org/repo/path/to/model' or local path.\n"
+                f"Path must have at least org/repo components."
+            )
+        
+        # For HuggingFace paths, expect: org/repo/subpath/model_name
+        # e.g., "microsoft/TRELLIS-image-large/ckpts/ss_dec_conv3d_16l8_fp16"
+        if len(path_parts) == 2:
+            # Just org/repo - model files should be at root
+            repo_id = path
+            model_name = ""
+        else:
+            # org/repo/subpath/.../model_name
+            repo_id = f'{path_parts[0]}/{path_parts[1]}'
+            model_name = '/'.join(path_parts[2:])
+        
+        # Download config and model files
+        if model_name:
+            config_file = hf_hub_download(repo_id, f"{model_name}.json")
+            model_file = hf_hub_download(repo_id, f"{model_name}.safetensors")
+        else:
+            config_file = hf_hub_download(repo_id, "model.json")
+            model_file = hf_hub_download(repo_id, "model.safetensors")
 
     with open(config_file, 'r') as f:
         config = json.load(f)

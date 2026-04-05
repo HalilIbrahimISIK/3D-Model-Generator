@@ -49,28 +49,44 @@ class Pipeline:
                 
                 err_str = str(first_err).lower()
                 # Re-raise immediately on auth errors — don't fall back silently
-                if any(x in err_str for x in ("401", "403", "authentication", "invalid username", "token")):
+                if any(x in err_str for x in ("401", "403", "authentication", "invalid username", "token", "gated", "access", "repository not found")):
                     raise RuntimeError(
                         f"HuggingFace kimlik dogrulama hatasi: {first_err}\n\n"
                         "Cozum:\n"
                         "  1. https://huggingface.co/microsoft/TRELLIS-image-large adresinde\n"
                         "     'Agree and access repository' tusuna tiklayin (ucretsiz)\n"
                         "  2. https://huggingface.co/settings/tokens adresinden token alin\n"
-                        "  3. Ayarlar > HuggingFace Token alanina girin\n"
+                        "  3. Google Colab'da su kodu calistirin:\n"
+                        "       from huggingface_hub import login\n"
+                        "       login(token='YOUR_TOKEN_HERE')\n"
                         "  VEYA terminalde: huggingface-cli login"
                     ) from first_err
-                # Only fall back to bare path for non-auth errors
-                try:
-                    print(f"    Fallback deneniyor: '{v}'")
-                    _models[k] = models.from_pretrained(v)
-                    print(f"    ✅ Fallback basarili")
-                except Exception as second_err:
-                    raise RuntimeError(
-                        f"Model '{k}' yuklenemedi.\n"
-                        f"  Deneme 1 ('{full_path}'): {first_err}\n"
-                        f"  Deneme 2 ('{v}'): {second_err}\n\n"
-                        "HuggingFace token gerekiyor olabilir. Ayarlar > HF Token alanini doldurun."
-                    ) from second_err
+                
+                # Don't try fallback for relative paths (they won't work as repo IDs)
+                # Only fallback if v looks like a complete repo path (e.g., "org/model")
+                if '/' in v and not v.startswith('ckpts/'):
+                    try:
+                        print(f"    Fallback deneniyor: '{v}'")
+                        _models[k] = models.from_pretrained(v)
+                        print(f"    ✅ Fallback basarili")
+                        continue
+                    except Exception as second_err:
+                        print(f"    ❌ Fallback basarisiz: {type(second_err).__name__}")
+                
+                # If we get here, both attempts failed or fallback was skipped
+                raise RuntimeError(
+                    f"Model '{k}' yuklenemedi.\n"
+                    f"  Path: '{full_path}'\n"
+                    f"  Hata: {first_err}\n\n"
+                    "Olasi nedenler:\n"
+                    "  - HuggingFace hesabinda model erisim izni yok\n"
+                    "  - HuggingFace token hatali veya eksik\n"
+                    "  - Internet baglantisi problemi\n\n"
+                    "Cozum:\n"
+                    "  1. https://huggingface.co/microsoft/TRELLIS-image-large -> 'Agree and access repository'\n"
+                    "  2. https://huggingface.co/settings/tokens -> Token al\n"
+                    "  3. Colab'da: from huggingface_hub import login; login(token='YOUR_TOKEN')"
+                ) from first_err
 
         new_pipeline = Pipeline(_models)
         new_pipeline._pretrained_args = args
