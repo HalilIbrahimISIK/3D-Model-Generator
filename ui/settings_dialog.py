@@ -143,43 +143,50 @@ class SettingsDialog(QDialog):
         layout.setSpacing(12)
         layout.setContentsMargins(0, 12, 0, 0)
 
-        conv_group = QGroupBox("3D Dönüştürme Ayarları")
+        conv_group = QGroupBox("TRELLIS Dönüştürme Ayarları")
         conv_group.setStyleSheet("QGroupBox { color: #9a9acc; font-weight: 600; }")
         form = QFormLayout(conv_group)
         form.setSpacing(10)
 
-        self.resolution_spin = QSpinBox()
-        self.resolution_spin.setRange(64, 512)
-        self.resolution_spin.setSingleStep(32)
-        self.resolution_spin.setValue(256)
-        self.resolution_spin.setToolTip(
-            "Daha yüksek çözünürlük = daha iyi kalite ama daha yavaş ve fazla bellek"
-        )
-        form.addRow("Mesh Çözünürlüğü:", self.resolution_spin)
+        self.steps_spin = QSpinBox()
+        self.steps_spin.setRange(8, 50)
+        self.steps_spin.setSingleStep(2)
+        self.steps_spin.setValue(12)
+        self.steps_spin.setToolTip("Daha fazla adım = daha iyi kalite ama daha yavaş")
+        form.addRow("Diffusion Adımları:", self.steps_spin)
 
-        res_note = QLabel(
-            "⚡ 128 = Hızlı | 256 = Dengeli | 512 = Yüksek Kalite (GPU önerilir)"
-        )
-        res_note.setStyleSheet("color: #6a6a9a; font-size: 11px;")
-        res_note.setWordWrap(True)
-        form.addRow("", res_note)
+        self.cfg_spin = QSpinBox()
+        self.cfg_spin.setRange(1, 20)
+        self.cfg_spin.setValue(7)
+        self.cfg_spin.setToolTip("CFG strength — yüksek değer görsele daha sadık ama daha az çeşitlilik")
+        form.addRow("CFG Gücü:", self.cfg_spin)
+
+        note = QLabel("⚡ Adım: 12 = Dengeli | 20+ = Yüksek Kalite (GPU önerilir)")
+        note.setStyleSheet("color: #6a6a9a; font-size: 11px;")
+        note.setWordWrap(True)
+        form.addRow("", note)
 
         layout.addWidget(conv_group)
 
-        # TripoSR install info
-        info_group = QGroupBox("TripoSR Kurulum Durumu")
+        # TRELLIS install info
+        info_group = QGroupBox("TRELLIS Kurulum Durumu")
         info_group.setStyleSheet("QGroupBox { color: #9a9acc; font-weight: 600; }")
         info_layout = QVBoxLayout(info_group)
 
         try:
-            from tsr.system import TSR  # noqa
-            status_text = "✅ TripoSR kurulu ve hazır."
+            import sys, os
+            trellis_lib = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "trellis_lib")
+            if trellis_lib not in sys.path:
+                sys.path.insert(0, trellis_lib)
+            from trellis.pipelines import TrellisImageTo3DPipeline  # noqa
+            status_text = "✅ TRELLIS kurulu ve hazır."
             status_style = "color: #7affc4;"
-        except ImportError:
+        except Exception:
             status_text = (
-                "❌ TripoSR kurulu değil.\n\n"
-                "Kurmak için terminalde çalıştırın:\n"
-                "pip install git+https://github.com/VAST-AI-Research/TripoSR.git"
+                "❌ TRELLIS import edilemiyor.\n\n"
+                "trellis_lib/ klasörü mevcut olmalı.\n"
+                "Kurulum için setup.sh çalıştırın:\n\n"
+                "⚠️  TRELLIS NVIDIA CUDA GPU gerektirir."
             )
             status_style = "color: #ff7a7a;"
 
@@ -187,6 +194,17 @@ class SettingsDialog(QDialog):
         status_lbl.setStyleSheet(status_style + " font-size: 12px;")
         status_lbl.setWordWrap(True)
         info_layout.addWidget(status_lbl)
+
+        import torch
+        try:
+            dev = "CUDA ✅" if torch.cuda.is_available() else (
+                "MPS (Apple) ⚠️" if (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()) else "CPU ❌ (TRELLIS desteklemiyor)"
+            )
+        except Exception:
+            dev = "Bilinmiyor"
+        gpu_lbl = QLabel(f"Mevcut cihaz: {dev}")
+        gpu_lbl.setStyleSheet("color: #9a9acc; font-size: 11px;")
+        info_layout.addWidget(gpu_lbl)
 
         layout.addWidget(info_group)
         layout.addStretch()
@@ -206,14 +224,16 @@ class SettingsDialog(QDialog):
         if idx >= 0:
             self.vision_model_combo.setCurrentIndex(idx)
 
-        self.resolution_spin.setValue(self.config.get("mesh_resolution", 256))
+        self.steps_spin.setValue(self.config.get("trellis_steps", 12))
+        self.cfg_spin.setValue(int(self.config.get("trellis_cfg_strength", 7)))
 
     def _save(self):
         """Save configuration."""
         self.config["groq_api_key"] = self.api_key_input.text().strip()
         self.config["text_model"] = self.text_model_combo.currentText()
         self.config["vision_model"] = self.vision_model_combo.currentText()
-        self.config["mesh_resolution"] = self.resolution_spin.value()
+        self.config["trellis_steps"] = self.steps_spin.value()
+        self.config["trellis_cfg_strength"] = float(self.cfg_spin.value())
         save_config(self.config)
         self.settings_saved.emit()
         self.accept()

@@ -1,204 +1,224 @@
 """
-Image to STL Converter using TripoSR.
-TripoSR: https://github.com/VAST-AI-Research/TripoSR
-Model: stabilityai/TripoSR (HuggingFace)
+Image to STL Converter using TRELLIS.
+TRELLIS: https://github.com/microsoft/TRELLIS
+Model: microsoft/TRELLIS-image-large (HuggingFace)
+
+Supports single and multi-image 3D reconstruction.
+⚠️  TRELLIS requires a CUDA-capable NVIDIA GPU.
 """
 
 import os
 import sys
-import tempfile
-from typing import Optional, Callable
+from typing import Optional, Callable, List
+
 from utils.config_manager import load_config
 
-# Add bundled TripoSR library to Python path
-_TRIPOSR_LIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "triposr_lib")
-if os.path.isdir(_TRIPOSR_LIB) and _TRIPOSR_LIB not in sys.path:
-    sys.path.insert(0, _TRIPOSR_LIB)
+# Env flag: use native spconv algo (no auto-benchmark on first run)
+os.environ.setdefault("SPCONV_ALGO", "native")
+
+# Add bundled TRELLIS library to Python path
+_TRELLIS_LIB = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "trellis_lib"
+)
+if os.path.isdir(_TRELLIS_LIB) and _TRELLIS_LIB not in sys.path:
+    sys.path.insert(0, _TRELLIS_LIB)
 
 
 class ImageToSTLConverter:
     """
-    Converts a single 2D image to a 3D STL mesh using TripoSR.
+    Converts one or more 2D images to a 3D STL mesh using TRELLIS.
 
-    Requirements:
-        pip install git+https://github.com/VAST-AI-Research/TripoSR.git
-        or
-        pip install tsr
+    Single image  → pipeline.run(image)
+    Multi-image   → pipeline.run_multi_image(images)   (different angles)
 
-    The HuggingFace model (stabilityai/TripoSR) is automatically downloaded
-    on first use (~1.5 GB).
+    ⚠️  Requires CUDA GPU. CPU-only execution is not supported by TRELLIS.
     """
 
     def __init__(self):
-        self.model = None
+        self.pipeline = None
         self._model_loaded = False
-        self._triposr_available = False
+        self._trellis_available = False
         self.device = "cpu"
         self._check_dependencies()
 
+    # ── Dependency check ────────────────────────────────────
+
     def _check_dependencies(self):
-        """Check if TripoSR and required packages are available."""
+        """Detect device and check if TRELLIS is importable."""
         try:
             import torch
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            if torch.cuda.is_available():
+                self.device = "cuda"
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                self.device = "mps"
+            else:
+                self.device = "cpu"
         except ImportError:
             self.device = "cpu"
 
         try:
-            from tsr.system import TSR  # noqa
-            self._triposr_available = True
-        except ImportError:
-            self._triposr_available = False
+            from trellis.pipelines import TrellisImageTo3DPipeline  # noqa
+            self._trellis_available = True
+        except Exception:
+            self._trellis_available = False
 
     def is_available(self) -> bool:
-        """Return True if TripoSR is installed."""
-        return self._triposr_available
+        return self._trellis_available
+
+    def get_device(self) -> str:
+        return self.device
 
     def get_install_instructions(self) -> str:
-        """Return installation instructions for TripoSR."""
         return (
-            "TripoSR kurulu değil. Kurmak için:\n\n"
-            "pip install git+https://github.com/VAST-AI-Research/TripoSR.git\n\n"
-            "veya setup.sh scriptini çalıştırın."
+            "TRELLIS kurulu değil veya import edilemiyor.\n\n"
+            "Kurulum için:\n"
+            "  git clone https://github.com/microsoft/TRELLIS.git trellis_lib\n"
+            "  pip install spconv-cu118  # CUDA 11.8 için\n"
+            "  pip install easydict imageio plyfile jaxtyping\n\n"
+            "⚠️  TRELLIS, NVIDIA CUDA GPU gerektirir.\n"
+            "    GPU bilgisi: " + self.device
         )
 
+    # ── Model loading ────────────────────────────────────────
+
     def _load_model(self, progress_cb: Optional[Callable] = None):
-        """Load TripoSR model from HuggingFace (downloads on first run)."""
-        if self._model_loaded and self.model is not None:
+        """Load TRELLIS pipeline from HuggingFace (downloads ~2 GB on first run)."""
+        if self._model_loaded and self.pipeline is not None:
             return
 
-        if not self._triposr_available:
-            raise RuntimeError("TripoSR kurulu değil. " + self.get_install_instructions())
+        if not self._trellis_available:
+            raise RuntimeError(self.get_install_instructions())
 
-        try:
-            import torch
-            from tsr.system import TSR
-
-            if progress_cb:
-                progress_cb(5, "TripoSR modeli yükleniyor (ilk kullanımda ~1.5 GB indirilir)...")
-
-            self.model = TSR.from_pretrained(
-                "stabilityai/TripoSR",
-                config_name="config.yaml",
-                weight_name="model.ckpt",
+        if self.device not in ("cuda",):
+            raise RuntimeError(
+                f"⚠️  TRELLIS yalnızca NVIDIA CUDA GPU ile çalışır.\n"
+                f"Mevcut cihaz: {self.device}\n\n"
+                "macOS kullanıyorsanız CUDA destekli bir sunucuya veya "
+                "Google Colab'a ihtiyacınız var."
             )
 
-            # Optimize chunk size for memory
-            if hasattr(self.model, "renderer") and hasattr(self.model.renderer, "set_chunk_size"):
-                self.model.renderer.set_chunk_size(8192)
+        try:
+            from trellis.pipelines import TrellisImageTo3DPipeline
 
-            self.model = self.model.to(self.device)
-            self.model.eval()
+            if progress_cb:
+                progress_cb(5, "TRELLIS modeli yükleniyor (ilk kullanımda ~2 GB indirilir)...")
+
+            self.pipeline = TrellisImageTo3DPipeline.from_pretrained(
+                "microsoft/TRELLIS-image-large"
+            )
+            self.pipeline.cuda()
             self._model_loaded = True
 
             if progress_cb:
-                progress_cb(25, "Model başarıyla yüklendi.")
+                progress_cb(25, "✅ Model başarıyla yüklendi.")
 
         except Exception as e:
             self._model_loaded = False
-            self.model = None
+            self.pipeline = None
             raise RuntimeError(f"Model yüklenirken hata: {e}")
+
+    # ── Conversion ───────────────────────────────────────────
 
     def convert(
         self,
-        image_path: str,
+        image_paths: List[str],
         output_path: str,
         progress_cb: Optional[Callable] = None,
     ) -> str:
         """
-        Convert an image file to STL.
+        Convert one or more images to an STL file.
 
         Args:
-            image_path:   Path to input image (PNG, JPG, etc.)
-            output_path:  Desired output .stl path
-            progress_cb:  Optional callback(percent: int, message: str)
+            image_paths:  List of image file paths (1 = single, 2+ = multi-angle).
+            output_path:  Desired output .stl path.
+            progress_cb:  Optional callback(percent: int, message: str).
 
         Returns:
             Path to the generated STL file.
         """
-        if not self._triposr_available:
+        if not self._trellis_available:
             raise RuntimeError(self.get_install_instructions())
+        if not image_paths:
+            raise ValueError("En az bir görsel gerekli.")
 
-        import torch
         from PIL import Image
+        import trimesh
+        import numpy as np
 
-        # ---- 1. Load model ----
+        # ── 1. Load model ──────────────────────────────────
         self._load_model(progress_cb)
 
-        # ---- 2. Load & preprocess image ----
+        # ── 2. Load images ─────────────────────────────────
         if progress_cb:
-            progress_cb(30, "Görsel işleniyor...")
+            progress_cb(30, f"{len(image_paths)} görsel yükleniyor...")
 
-        image = Image.open(image_path).convert("RGBA")
+        images = [Image.open(p).convert("RGB") for p in image_paths]
 
-        # ---- 3. Background removal ----
-        try:
-            from rembg import remove as rembg_remove, new_session
-            if progress_cb:
-                progress_cb(40, "Arka plan kaldırılıyor...")
-            session = new_session("u2net")
-            image = rembg_remove(image, session=session)
-        except Exception as e:
-            print(f"[Converter] rembg not available or failed ({e}), skipping background removal.")
-
-        # Convert to RGB for TripoSR
-        image = image.convert("RGB")
-
-        # ---- 4. Resize/center foreground ----
-        try:
-            from tsr.utils import resize_foreground
-            image = resize_foreground(image, 0.85)
-        except Exception:
-            # Fallback: just resize to 512x512
-            image = image.resize((512, 512), Image.LANCZOS)
-
-        # ---- 5. Run 3D reconstruction ----
-        if progress_cb:
-            progress_cb(55, "3D yeniden yapılandırma çalışıyor...")
-
-        with torch.no_grad():
-            scene_codes = self.model([image], device=self.device)
-
-        # ---- 6. Extract mesh ----
+        # ── 3. Run TRELLIS pipeline ────────────────────────
         config = load_config()
-        resolution = config.get("mesh_resolution", 256)
+        steps = config.get("trellis_steps", 12)
+        cfg = config.get("trellis_cfg_strength", 7.5)
 
         if progress_cb:
-            progress_cb(80, f"Mesh çıkarılıyor (çözünürlük: {resolution})...")
+            progress_cb(40, "3D yeniden yapılandırma çalışıyor...")
 
-        meshes = self.model.extract_mesh(scene_codes, has_vertex_color=False, resolution=resolution)
-        mesh = meshes[0]
+        if len(images) == 1:
+            outputs = self.pipeline.run(
+                images[0],
+                seed=42,
+                preprocess_image=True,
+                sparse_structure_sampler_params={"steps": steps, "cfg_strength": cfg},
+                slat_sampler_params={"steps": steps, "cfg_strength": 3.0},
+            )
+        else:
+            if progress_cb:
+                progress_cb(40, f"{len(images)} açıdan çok görsel analizi yapılıyor...")
+            outputs = self.pipeline.run_multi_image(
+                images,
+                seed=42,
+                preprocess_image=True,
+                sparse_structure_sampler_params={"steps": steps, "cfg_strength": cfg},
+                slat_sampler_params={"steps": steps, "cfg_strength": 3.0},
+            )
 
-        # ---- 7. Export STL ----
+        # ── 4. Extract mesh ────────────────────────────────
+        if progress_cb:
+            progress_cb(82, "Mesh çıkarılıyor...")
+
+        mesh_result = outputs["mesh"][0]
+        vertices = mesh_result.vertices.cpu().float().numpy()
+        faces = mesh_result.faces.cpu().numpy()
+
+        tri_mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+
+        # ── 5. Export STL ──────────────────────────────────
         if progress_cb:
             progress_cb(95, "STL dosyası dışa aktarılıyor...")
 
-        # Ensure directory exists
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-
-        # Ensure .stl extension
         if not output_path.lower().endswith(".stl"):
             output_path += ".stl"
 
-        mesh.export(output_path)
+        tri_mesh.export(output_path)
 
         if progress_cb:
             progress_cb(100, "✅ STL dosyası başarıyla oluşturuldu!")
 
         return output_path
 
+    # ── Cleanup ──────────────────────────────────────────────
+
     def unload_model(self):
-        """Release model from memory."""
-        if self.model is not None:
+        """Release GPU memory."""
+        if self.pipeline is not None:
             try:
                 import torch
-                del self.model
+                del self.pipeline
                 if self.device == "cuda":
                     torch.cuda.empty_cache()
             except Exception:
                 pass
             finally:
-                self.model = None
+                self.pipeline = None
                 self._model_loaded = False
-
 

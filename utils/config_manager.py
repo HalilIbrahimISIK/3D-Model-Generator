@@ -15,7 +15,9 @@ DEFAULT_CONFIG = {
     "vision_model": "llama-3.2-11b-vision-preview",
     "output_dir": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output"),
     "uploads_dir": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads"),
-    "mesh_resolution": 256,
+    # TRELLIS settings
+    "trellis_steps": 12,
+    "trellis_cfg_strength": 7.5,
     "theme": "dark",
 }
 

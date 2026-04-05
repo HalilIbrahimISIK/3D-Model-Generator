@@ -62,21 +62,25 @@ echo -e "${YELLOW}[4/6] PyTorch kuruluyor...${NC}"
 $PIP install torch torchvision --quiet
 echo -e "${GREEN}✓ PyTorch kuruldu${NC}"
 
-# ── TripoSR (git clone) ───────────────────────────────────
+# ── TripoSR → TRELLIS ────────────────────────────────────────
 echo ""
-echo -e "${YELLOW}[5/6] TripoSR kuruluyor...${NC}"
-if [ -d "$SCRIPT_DIR/triposr_lib" ]; then
-    echo -e "    Mevcut triposr_lib güncelleniyor..."
-    cd "$SCRIPT_DIR/triposr_lib" && git pull --quiet && cd "$SCRIPT_DIR"
+echo -e "${YELLOW}[5/6] TRELLIS kuruluyor...${NC}"
+if [ -d "$SCRIPT_DIR/trellis_lib" ]; then
+    echo -e "    Mevcut trellis_lib mevcut ✓"
 else
-    echo -e "    GitHub'dan klonlanıyor..."
-    git clone --quiet https://github.com/VAST-AI-Research/TripoSR.git "$SCRIPT_DIR/triposr_lib"
+    echo -e "    GitHub'dan klonlanıyor (microsoft/TRELLIS)..."
+    git clone --quiet https://github.com/microsoft/TRELLIS.git "$SCRIPT_DIR/trellis_lib"
+    rm -rf "$SCRIPT_DIR/trellis_lib/.git"
 fi
 
-echo -e "    TripoSR bağımlılıkları kuruluyor..."
-$PIP install git+https://github.com/tatsy/torchmcubes.git --quiet
-$PIP install transformers xatlas moderngl --quiet
-echo -e "${GREEN}✓ TripoSR kuruldu${NC}"
+echo -e "    TRELLIS bağımlılıkları kuruluyor..."
+$PIP install easydict imageio imageio-ffmpeg plyfile jaxtyping einops ninja --quiet
+echo -e "${GREEN}✓ TRELLIS kuruldu${NC}"
+echo ""
+echo -e "${YELLOW}⚠️  TRELLIS CUDA GPU gerektirir. CUDA kurulumu için:${NC}"
+echo -e "    ${BLUE}pip install spconv-cu118   # CUDA 11.8${NC}"
+echo -e "    ${BLUE}pip install spconv-cu121   # CUDA 12.1${NC}"
+echo -e "    (CUDA sürümünüze uygun olanı seçin)"
 
 # ── Directories ───────────────────────────────────────────
 echo ""
