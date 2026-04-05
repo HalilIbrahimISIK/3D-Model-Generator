@@ -14,7 +14,28 @@
 # limitations under the License.
 import torch
 from .tables import *
-from kaolin.utils.testing import check_tensor
+
+# Optional kaolin import - TRELLIS can work without it for non-mesh outputs
+try:
+    from kaolin.utils.testing import check_tensor
+except ImportError:
+    # Fallback: basic tensor validation without kaolin
+    def check_tensor(tensor, shape=None, dtype=None, device=None, throw=True):
+        """Simplified check_tensor when kaolin is not available"""
+        try:
+            if not isinstance(tensor, torch.Tensor):
+                raise TypeError(f"Expected torch.Tensor, got {type(tensor)}")
+            if shape is not None and tensor.shape != shape:
+                raise ValueError(f"Expected shape {shape}, got {tensor.shape}")
+            if dtype is not None and tensor.dtype != dtype:
+                raise TypeError(f"Expected dtype {dtype}, got {tensor.dtype}")
+            if device is not None and str(tensor.device) != str(device):
+                raise ValueError(f"Expected device {device}, got {tensor.device}")
+            return True
+        except Exception as e:
+            if throw:
+                raise
+            return False
 
 __all__ = [
     'FlexiCubes'
