@@ -2,7 +2,7 @@
 
 Tek bir görselden STL 3D baskı dosyası üreten Python masaüstü yapay zeka uygulaması.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hibrahimisik/3D-Model-Generator/blob/main/colab_app.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HalilIbrahimISIK/3D-Model-Generator/blob/main/colab_app.ipynb)
 
 | Bileşen | Teknoloji |
 |---------|-----------|
