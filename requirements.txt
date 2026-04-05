@@ -16,3 +16,8 @@ networkx>=3.1
 transformers>=4.35.0
 xatlas>=0.0.9
 moderngl>=5.10.0
+
+# kaolin - Install separately with correct CUDA version:
+# pip install kaolin==0.15.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.0.0_cu118.html
+# (Replace cu118 with your CUDA version: cu121, cu117, etc.)
+
