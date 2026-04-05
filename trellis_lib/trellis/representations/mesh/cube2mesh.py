@@ -2,7 +2,15 @@ import torch
 from ...modules.sparse import SparseTensor
 from easydict import EasyDict as edict
 from .utils_cube import *
-from .flexicubes.flexicubes import FlexiCubes
+
+try:
+    from .flexicubes.flexicubes import FlexiCubes
+    FLEXICUBES_AVAILABLE = True
+except ImportError:
+    FlexiCubes = None
+    FLEXICUBES_AVAILABLE = False
+    import warnings
+    warnings.warn("FlexiCubes not available (kaolin not installed). Mesh extraction disabled.", ImportWarning)
 
 
 class MeshExtractResult:
@@ -61,6 +69,13 @@ class SparseFeatures2Mesh:
         a model to generate a mesh from sparse features structures using flexicube
         '''
         super().__init__()
+        
+        if not FLEXICUBES_AVAILABLE:
+            raise RuntimeError(
+                "FlexiCubes not available - kaolin package not installed.\n"
+                "Mesh extraction is disabled. Use Gaussian Splatting output instead."
+            )
+        
         self.device=device
         self.res = res
         self.mesh_extractor = FlexiCubes(device=device)
