@@ -64,7 +64,21 @@ def from_pretrained(path: str, **kwargs):
 
     with open(config_file, 'r') as f:
         config = json.load(f)
-    model = __getattr__(config['name'])(**config['args'], **kwargs)
+    
+    model_class_name = config['name']
+    try:
+        model_class = __getattr__(model_class_name)
+    except (KeyError, AttributeError) as e:
+        available = list(__attributes.keys())
+        raise RuntimeError(
+            f"Model class '{model_class_name}' not found in trellis.models.\n"
+            f"Available classes: {available}\n"
+            f"Original error: {e}\n"
+            f"Config file: {config_file}\n"
+            f"Path: {path}"
+        ) from e
+    
+    model = model_class(**config['args'], **kwargs)
     model.load_state_dict(load_file(model_file))
 
     return model

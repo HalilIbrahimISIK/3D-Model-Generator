@@ -42,6 +42,11 @@ class Pipeline:
             try:
                 _models[k] = models.from_pretrained(full_path)
             except Exception as first_err:
+                # DEBUG: print actual error to help diagnose
+                print(f"⚠️  Model '{k}' ({full_path}) yuklenemedi, fallback deneniyor...")
+                print(f"    Hata turu: {type(first_err).__name__}")
+                print(f"    Mesaj: {str(first_err)[:200]}")
+                
                 err_str = str(first_err).lower()
                 # Re-raise immediately on auth errors — don't fall back silently
                 if any(x in err_str for x in ("401", "403", "authentication", "invalid username", "token")):
@@ -56,7 +61,9 @@ class Pipeline:
                     ) from first_err
                 # Only fall back to bare path for non-auth errors
                 try:
+                    print(f"    Fallback deneniyor: '{v}'")
                     _models[k] = models.from_pretrained(v)
+                    print(f"    ✅ Fallback basarili")
                 except Exception as second_err:
                     raise RuntimeError(
                         f"Model '{k}' yuklenemedi.\n"
