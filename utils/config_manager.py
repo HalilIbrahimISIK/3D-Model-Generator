@@ -11,6 +11,7 @@ CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 DEFAULT_CONFIG = {
     "groq_api_key": "",
+    "hf_token": "",
     "text_model": "llama-3.3-70b-versatile",
     "vision_model": "llama-3.2-11b-vision-preview",
     "output_dir": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output"),

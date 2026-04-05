@@ -134,6 +134,42 @@ class SettingsDialog(QDialog):
         mform.addRow("", note)
 
         layout.addWidget(model_group)
+
+        # HuggingFace token group
+        hf_group = QGroupBox("HuggingFace Token  (TRELLIS modeli için zorunlu)")
+        hf_group.setStyleSheet("QGroupBox { color: #9a9acc; font-weight: 600; }")
+        hf_form = QFormLayout(hf_group)
+        hf_form.setSpacing(10)
+
+        hf_key_layout = QHBoxLayout()
+        self.hf_token_input = QLineEdit()
+        self.hf_token_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.hf_token_input.setPlaceholderText("hf_xxxxxxxxxxxxxxxxxxxxxxxx")
+        hf_key_layout.addWidget(self.hf_token_input)
+
+        hf_show_btn = QPushButton("👁")
+        hf_show_btn.setFixedWidth(36)
+        hf_show_btn.setCheckable(True)
+        hf_show_btn.toggled.connect(
+            lambda checked: self.hf_token_input.setEchoMode(
+                QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
+            )
+        )
+        hf_key_layout.addWidget(hf_show_btn)
+        hf_form.addRow("HF Token:", hf_key_layout)
+
+        hf_steps = QLabel(
+            "1. <a href='https://huggingface.co/microsoft/TRELLIS-image-large' style='color:#7c6af7;'>"
+            "TRELLIS model sayfasına git</a> → \"Agree and access repository\"<br>"
+            "2. <a href='https://huggingface.co/settings/tokens' style='color:#7c6af7;'>"
+            "Token oluştur</a> → Read erişimi yeterli → Buraya yapıştır"
+        )
+        hf_steps.setOpenExternalLinks(True)
+        hf_steps.setStyleSheet("color: #6a6a9a; font-size: 11px;")
+        hf_steps.setWordWrap(True)
+        hf_form.addRow("", hf_steps)
+
+        layout.addWidget(hf_group)
         layout.addStretch()
         return widget
 
@@ -213,6 +249,7 @@ class SettingsDialog(QDialog):
     def _load_values(self):
         """Populate UI with current config values."""
         self.api_key_input.setText(self.config.get("groq_api_key", ""))
+        self.hf_token_input.setText(self.config.get("hf_token", ""))
 
         text_model = self.config.get("text_model", "llama-3.3-70b-versatile")
         idx = self.text_model_combo.findText(text_model)
@@ -230,6 +267,7 @@ class SettingsDialog(QDialog):
     def _save(self):
         """Save configuration."""
         self.config["groq_api_key"] = self.api_key_input.text().strip()
+        self.config["hf_token"] = self.hf_token_input.text().strip()
         self.config["text_model"] = self.text_model_combo.currentText()
         self.config["vision_model"] = self.vision_model_combo.currentText()
         self.config["trellis_steps"] = self.steps_spin.value()

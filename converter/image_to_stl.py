@@ -100,6 +100,24 @@ class ImageToSTLConverter:
         try:
             from trellis.pipelines import TrellisImageTo3DPipeline
 
+            # ── HuggingFace kimlik doğrulama ──────────────────
+            config = load_config()
+            hf_token = config.get("hf_token", "").strip()
+            if hf_token:
+                try:
+                    from huggingface_hub import login
+                    login(token=hf_token, add_to_git_credential=False)
+                    if progress_cb:
+                        progress_cb(3, "HuggingFace girişi başarılı.")
+                except Exception as e:
+                    raise RuntimeError(
+                        f"HuggingFace token geçersiz: {e}\n"
+                        "Ayarlar > HuggingFace Token alanını kontrol edin."
+                    )
+            else:
+                if progress_cb:
+                    progress_cb(3, "⚠️  HF token girilmemiş — gated model erişimi başarısız olabilir.")
+
             if progress_cb:
                 progress_cb(5, "TRELLIS modeli yükleniyor (ilk kullanımda ~2 GB indirilir)...")
 
