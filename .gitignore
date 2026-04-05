@@ -1,0 +1,36 @@
+# ── Sanal ortam ──────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Python cache ─────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+
+# ── Konfigürasyon (API anahtarları içerir) ───────
+config.json
+
+# ── Uygulama çıktıları ───────────────────────────
+output/
+uploads/
+
+# ── macOS ────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# ── IDE ──────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+
+# ── Dağıtım / build ──────────────────────────────
+dist/
+build/
+*.egg-info/
+
