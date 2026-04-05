@@ -2,14 +2,37 @@
 
 Tek bir görselden STL 3D baskı dosyası üreten Python masaüstü yapay zeka uygulaması.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hibrahimisik/3D-Model-Generator/blob/main/colab_app.ipynb)
+
 | Bileşen | Teknoloji |
 |---------|-----------|
-| **Arayüz** | PyQt6 (koyu tema) |
+| **Masaüstü Arayüz** | PyQt6 (koyu tema) |
+| **Colab Arayüzü** | Gradio |
 | **LLM** | Groq API — `llama-3.3-70b-versatile` + `llama-3.2-11b-vision-preview` |
-| **Görsel → 3D** | [TripoSR](https://github.com/VAST-AI-Research/TripoSR) (Stability AI) |
-| **Arka plan kaldırma** | rembg (U2Net) |
+| **Görsel → 3D** | [TRELLIS](https://github.com/microsoft/TRELLIS) (Microsoft) |
 
 ---
+
+## 🚀 Google Colab ile Çalıştır (Önerilen)
+
+TRELLIS **NVIDIA CUDA GPU** gerektirir. Ücretsiz GPU için Google Colab kullanın:
+
+### Hızlı Başlangıç
+1. Yukarıdaki **"Open in Colab"** rozetine tıklayın
+2. `Çalışma Zamanı → Çalışma zamanı türünü değiştir → T4 GPU` seçin
+3. Hücreleri sırasıyla çalıştırın
+4. Kurulum bittikten sonra runtime'ı yeniden başlatın
+5. Gradio arayüzü açılır — public link ile paylaşabilirsiniz
+
+### Adım Adım
+| Hücre | İşlem | Süre |
+|-------|-------|------|
+| Adım 1 | GPU kontrolü | ~5 sn |
+| Adım 2 | Bağımlılık kurulumu + **runtime restart** | ~5-10 dk |
+| Adım 3 | Proje setup + GitHub'dan klonla | ~1 dk |
+| Adım 4 | TRELLIS modeli yükle (~2 GB) | ~3-5 dk |
+| Adım 5 | Groq API anahtarı (isteğe bağlı) | ~5 sn |
+| Adım 6 | Gradio uygulamasını başlat | ~10 sn |
 
 ## 🖥️ Ekran Görüntüsü
 
